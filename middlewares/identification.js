@@ -4,7 +4,7 @@ exports.identifier = async (req, res, next) => {
   const token =
     req.headers.authorization ||
     req.headers["Authorization"] ||
-    req.cookie["Authorization"];
+    req.cookies["Authorization"];
 
   if (!token) {
     return res.status(403).json({
