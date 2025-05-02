@@ -4,6 +4,7 @@ const {
   authSchema,
   acceptCodeSchema,
   changePasswordSchema,
+  acceptFPCodeSchema,
 } = require("../middlewares/validators");
 const {
   hashPassword,
@@ -175,7 +176,9 @@ exports.verifyCode = async (req, res) => {
     }
 
     const codeValue = code.toString();
-    const user = await User.findOne({ email }).select("+verificationCode");
+    const user = await User.findOne({ email }).select(
+      "+verificationCode +verificationCodeValidation"
+    );
 
     if (!user) {
       return res
@@ -261,6 +264,111 @@ exports.changePassword = async (req, res) => {
       message: "Password changed successfully",
     });
   } catch (error) {
+    res.status(500).json({ status: "Failed", message: error.message });
+  }
+};
+
+exports.sendForgotPasswordCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ status: "Failed", message: "User not found" });
+    }
+
+    const code = Math.floor(Math.random() * 1000000).toString();
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL,
+      to: email,
+      subject: "Forgot Password Verification Code",
+      html: `<p>Hi,</p>
+            <p>To reset your password, please enter this code</p>
+            <h1>${code}</h1>
+            <p>If you didn't request this, please ignore this email.</p>
+            <p>Thanks,</p>
+            <p>The Team</p>`,
+    });
+
+    if (info.accepted[0] === user.email) {
+      const hashedCode = hmacProcess(code, process.env.HMAC_CODE_SECRET);
+      user.forgotPasswordCode = hashedCode;
+      user.forgotPasswordCodeValidation = Date.now();
+      user.save();
+
+      return res.status(200).json({
+        status: "Success",
+        message: "Your validation code has been sent",
+      });
+    }
+
+    res.status(400).json({ status: "Failed", message: "Failed to send code " });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ status: "Failed", message: error.message });
+  }
+};
+
+exports.verifyForgotPasswordCode = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    const { error, value } = acceptFPCodeSchema.validate({
+      email,
+      code,
+      newPassword,
+    });
+    if (error) {
+      let message = error.details[0].message;
+
+      if (error.details[0].context.key === "code") {
+        message = "Code must be a number";
+      } else if (error.details[0].context.key === "email") {
+        message = "Email must be a valid email address";
+      }
+      return res.status(401).json({ status: "Failed", message });
+    }
+
+    const codeValue = code.toString();
+    const user = await User.findOne({ email }).select(
+      "+forgotPasswordCode +forgotPasswordCodeValidation"
+    );
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ status: "Failed", message: "User not found" });
+    }
+    if (!user.forgotPasswordCode || !user.forgotPasswordCodeValidation) {
+      return res
+        .status(401)
+        .json({ status: "Failed", message: "Verification code not found" });
+    }
+    if (Date.now() - user.forgotPasswordCodeValidation > 5 * 60 * 1000) {
+      return res.status(401).json({
+        status: "Failed",
+        message: "Verification code expired",
+      });
+    }
+
+    const hashedCode = hmacProcess(codeValue, process.env.HMAC_CODE_SECRET);
+    if (hashedCode !== user.forgotPasswordCode) {
+      return res
+        .status(401)
+        .json({ status: "Failed", message: "Invalid verification code" });
+    }
+    const hashedPassword = await hashPassword(newPassword, 12);
+    user.password = hashedPassword;
+    user.forgotPasswordCode = undefined;
+    user.forgotPasswordCodeValidation = undefined;
+    await user.save();
+
+    res.status(200).json({
+      status: "Success",
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.log(error);
     res.status(500).json({ status: "Failed", message: error.message });
   }
 };
