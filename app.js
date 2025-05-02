@@ -3,6 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const authRouter = require("./routers/authRouter");
+const postsRouter = require("./routers/postsRouter");
 
 const app = express();
 
@@ -17,5 +18,6 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/posts", postsRouter);
 
 module.exports = app;

@@ -49,3 +49,9 @@ exports.acceptFPCodeSchema = joi.object({
     .required()
     .pattern(new RegExp("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$")),
 });
+
+exports.postSchema = joi.object({
+  title: joi.string().min(5).max(30).required(),
+  description: joi.string().min(5).max(255).required(),
+  id: joi.string().required(),
+});
