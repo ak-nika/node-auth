@@ -1,6 +1,6 @@
 const joi = require("joi");
 
-exports.signupSchema = joi.object({
+exports.authSchema = joi.object({
   email: joi
     .string()
     .min(6)
