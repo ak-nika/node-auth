@@ -12,3 +12,13 @@ exports.authSchema = joi.object({
     .required()
     .pattern(new RegExp("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$")),
 });
+
+exports.acceptCodeSchema = joi.object({
+  email: joi
+    .string()
+    .min(6)
+    .max(50)
+    .required()
+    .email({ tlds: ["com", "net"] }),
+  code: joi.number().required(),
+});
