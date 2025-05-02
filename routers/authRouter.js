@@ -12,5 +12,6 @@ router.post(
   authController.sendVerificationCode
 );
 router.post("/verifyCode", identifier, authController.verifyCode);
+router.patch("/changePassword", identifier, authController.changePassword);
 
 module.exports = router;

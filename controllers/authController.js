@@ -1,6 +1,10 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/usersModel");
-const { authSchema, acceptCodeSchema } = require("../middlewares/validators");
+const {
+  authSchema,
+  acceptCodeSchema,
+  changePasswordSchema,
+} = require("../middlewares/validators");
 const {
   hashPassword,
   comparePassword,
@@ -212,6 +216,51 @@ exports.verifyCode = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
+    res.status(500).json({ status: "Failed", message: error.message });
+  }
+};
+
+exports.changePassword = async (req, res) => {
+  try {
+    const { id, verified } = req.user;
+    const { oldPassword, newPassword } = req.body;
+    const { error, value } = changePasswordSchema.validate({
+      oldPassword,
+      newPassword,
+    });
+    if (error) {
+      return res.status(401).json({
+        status: "Failed",
+        message:
+          "Passwords must contain at least 8 characters, one uppercase letter, one lowercase letter, and one number",
+      });
+    }
+    if (!verified) {
+      return res
+        .status(401)
+        .json({ status: "Failed", message: "User not verified" });
+    }
+    const user = await User.findById(id).select("+password");
+    if (!user) {
+      return res
+        .status(404)
+        .json({ status: "Failed", message: "User not found" });
+    }
+    const isCorrectPassword = await comparePassword(oldPassword, user.password);
+    if (!isCorrectPassword) {
+      return res
+        .status(401)
+        .json({ status: "Failed", message: "Invalid credentials" });
+    }
+    const hashedPassword = await hashPassword(newPassword, 12);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({
+      status: "Success",
+      message: "Password changed successfully",
+    });
+  } catch (error) {
     res.status(500).json({ status: "Failed", message: error.message });
   }
 };
